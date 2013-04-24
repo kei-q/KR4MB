@@ -1,0 +1,3 @@
+
+keyremap4macbookのprivate.xmlを出力するDSLをHaskellで書くためのpackage
+例はSample.hsを参照
