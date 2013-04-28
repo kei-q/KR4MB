@@ -2,7 +2,9 @@
 import Text.KR4MB
 import Control.Monad (forM_)
 
-main = output rule
+dest_path = "/Users/keqh/Library/Application Support/KeyRemap4MacBook/private.xml"
+
+main = reload dest_path rule
 
 rule :: Rule
 rule = root $ do
@@ -34,6 +36,7 @@ rule = root $ do
           extra1 key `keyToKey'` [toKey JIS_EISUU, focusiTerm, tmuxPrefix, toKey key]
 
   item "Swap Semicolon and underscore" $ do
+    ':' `swapKey` ':'
     ';' `swapKey` '_'
 
   item "Google IME" $ do
@@ -41,5 +44,6 @@ rule = root $ do
 
   item "for coding" $ do
     extra1 '.' `keyToKey'` " -> "
-
+    appendix "insert where clause for haskell"
+    extra1 'w' `keyToKey'` "\n  where\n"
 

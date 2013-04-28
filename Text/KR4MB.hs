@@ -6,6 +6,7 @@ module Text.KR4MB where
 import Control.Monad.RWS
 import Data.Char (toLower, toUpper)
 import Data.List (intercalate)
+import qualified System.Process.QQ as P
 
 type Rule = RWS () String Int ()
 indentLevel = 4
@@ -15,6 +16,17 @@ run rule = let (state, xml) = execRWS rule () defaultIndentLevel in xml
 
 output :: Rule -> IO ()
 output = putStrLn . run
+
+-- reload settings
+-- =========================
+
+cli_path = "/Applications/KeyRemap4MacBook.app/Contents/Applications/KeyRemap4MacBook_cli.app/Contents/MacOS/KeyRemap4MacBook_cli"
+
+reload :: FilePath -> Rule -> IO ()
+reload private_xml_path rule = do
+    writeFile private_xml_path $ run rule
+    [P.cmd|#{cli_path} reloadxml|]
+    return ()
 
 -- utility
 -- =========================
@@ -156,6 +168,7 @@ showKeyCode (C '-') = keyCodePrefix "MINUS"
 showKeyCode (C '[') = keyCodePrefix "BRACKET_LEFT"
 showKeyCode (C '.') = keyCodePrefix "DOT"
 showKeyCode (C ' ') = keyCodePrefix "SPACE"
+showKeyCode (C '\n') = keyCodePrefix "ENTER"
 showKeyCode (C c)
   | c `elem` "1234567890" = keyCodePrefix $ "KEY_" ++ [c]
   | otherwise = keyCodePrefix [toUpper c]
