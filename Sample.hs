@@ -4,8 +4,14 @@ import Control.Monad (forM_)
 
 dest_path = "/Users/keqh/Library/Application Support/KeyRemap4MacBook/private.xml"
 
+settings = [("repeat.wait", 10)
+    ,("repeat.initial_wait", 250)
+    ,("pointing.relative2scroll_rate", 250)
+    ]
+
 main = do
     reload dest_path rule
+    setParams settings
 
 rule :: Rule
 rule = root $ do

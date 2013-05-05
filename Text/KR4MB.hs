@@ -19,6 +19,14 @@ run rule = (state, xml)
   where
     (state, xml) = execRWS rule () defaultRuleState
 
+-- keyrepeat settings
+-- =========================
+
+type KeyRepeatSettings = [(String, Int)]
+setParams :: KeyRepeatSettings -> IO ()
+setParams = mapM_ (\(key,val) -> [P.cmd|#{cli_path} set #{key} #{show val}|])
+
+
 -- reload settings
 -- =========================
 
