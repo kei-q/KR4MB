@@ -1,13 +1,13 @@
-{-# LANGUAGE QuasiQuotes, ExtendedDefaultRules #-}
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Text.KR4MB where
 
 import Control.Monad.RWS
-import Data.Char (toLower, toUpper)
+import Data.Char (toLower, toUpper, isNumber)
 import Data.List (intercalate)
-import qualified System.Process.QQ as P
-import Debug.Trace
+
+import qualified Text.KR4MB.CLI as CLI
 
 data RuleState = RS { rsIndent :: Int, rsIdentities :: [String] } deriving Show
 defaultRuleState = RS { rsIndent = 0, rsIdentities = [] }
@@ -24,22 +24,19 @@ run rule = (state, xml)
 
 type KeyRepeatSettings = [(String, Int)]
 setParams :: KeyRepeatSettings -> IO ()
-setParams = mapM_ (\(key,val) -> [P.cmd|#{cli_path} set #{key} #{show val}|])
-
+setParams = mapM_ CLI.set
 
 -- reload settings
 -- =========================
-
-cli_path = "/Applications/KeyRemap4MacBook.app/Contents/Applications/KeyRemap4MacBook_cli.app/Contents/MacOS/KeyRemap4MacBook_cli"
 
 reload :: FilePath -> Rule -> IO ()
 reload private_xml_path rule = do
     let (state, xml) = run rule
     writeFile private_xml_path xml
-    [P.cmd|#{cli_path} reloadxml|]
+    CLI.reload
 
     forM_ (rsIdentities state) $ \ident -> do
-        [P.cmd|#{cli_path} enable #{ident}|]
+        CLI.enable ident
 
     return ()
 
@@ -50,7 +47,6 @@ doIndent :: Rule -> Rule
 doIndent rule = indent >> rule >> dedent
   where
     indent = do
-        tellIndent
         state <- get
         let newIndent = (rsIndent state) + indentLevel
         put state{ rsIndent = newIndent }
@@ -59,7 +55,6 @@ doIndent rule = indent >> rule >> dedent
         state <- get
         let newIndent = (rsIndent state) - indentLevel
         put state{ rsIndent = newIndent }
-        tellIndent
 
 identifier :: String -> Rule
 identifier name = do
@@ -83,8 +78,10 @@ tellIndent = do
 
 wrap :: String -> Rule -> Rule
 wrap tagname rule = do
+    tellIndent
     tell $ "<" ++ tagname ++ ">\n"
     doIndent rule
+    tellIndent
     tell $ "</" ++ tagname ++ ">\n"
 
 toIdentifier :: String -> String
@@ -112,42 +109,48 @@ item name config = wrap "item" $ do
 appendix :: String -> Rule
 appendix message = tell' "appendix" message
 
-autogen :: String -> Rule
-autogen contents = tell' "autogen" contents
+autogen :: String -> String ->  Rule
+autogen key contents = tell' "autogen" $ key ++ " " ++ contents
 
 -- keyremap
 -- =========================
 
+--(<.>) :: a -> a -> a
+a <.> b = a ++ ", " ++ b
+
+showKey :: forall a. (KeyBehavior a) => a -> String
+showKey = show . toKey
+
 keyOverlaidModifier :: (KeyBehavior a) => a -> a -> [a] -> Rule
 keyOverlaidModifier base normal single = do
-    let base' = show $ toKey base
-    let normal' = show $ toKey normal
-    let single' = intercalate ", " $ map (show . toKey) single
-    autogen $ "__KeyOverlaidModifier__ " ++ (base' ++ ", " ++ normal' ++ ", " ++ single')
+    let base' = showKey base
+    let normal' = showKey normal
+    let single' = intercalate ", " $ map showKey single
+    autogen "__KeyOverlaidModifier__" (base' <.> normal' <.> single')
 
 keyOverlaidModifierWithRepeat :: (KeyBehavior a) => a -> a -> Rule
 keyOverlaidModifierWithRepeat base normal = do
-    let base' = show $ toKey base
-    let normal' = show $ toKey normal
-    autogen $ "__KeyOverlaidModifierWithRepeat__ " ++ (base' ++ ", " ++ normal' ++ ", " ++ base')
+    let base' = showKey base
+    let normal' = showKey normal
+    autogen "__KeyOverlaidModifierWithRepeat__" (base' <.> normal' <.> base')
 
 keyToKey :: (KeyBehavior a, KeyBehavior b) => a -> b -> Rule
 keyToKey old new = do
-    let old' = show $ toKey old
-    let new' = show $ toKey new
-    autogen $ "__KeyToKey__ " ++ (old' ++ ", " ++ new')
+    let old' = showKey old
+    let new' = showKey new
+    autogen "__KeyToKey__" (old' <.> new')
 
 keyToKey' :: (KeyBehavior a, KeyBehavior b) => a -> [b] -> Rule
 keyToKey' old seqs = do
-    let old' = show $ toKey old
-    let seqs' = intercalate ", " $ map (show . toKey) seqs
-    autogen $ "__KeyToKey__ " ++ (old' ++ ", " ++ seqs')
+    let old' = showKey old
+    let seqs' = intercalate ", " $ map showKey seqs
+    autogen "__KeyToKey__" (old' <.> seqs')
 
 --keyToConsumer :: a
 keyToConsumer old new = do
-    let old' = show $ toKey old
-    let new' = show $ toKey new
-    autogen $ "__KeyToConsumer__ " ++ (old' ++ ", " ++ new')
+    let old' = showKey old
+    let new' = showKey new
+    autogen "__KeyToConsumer__" (old' <.> new')
 
 -- contributes
 -- =========================
@@ -161,7 +164,7 @@ keySequence :: String -> [Key]
 keySequence = map toKey
 
 setJSLayout = do
-    autogen $ "__SetKeyboardType__ KeyboardType::MACBOOK"
+    autogen "__SetKeyboardType__" "KeyboardType::MACBOOK"
     JIS_YEN `keyToKey` '`'
     JIS_UNDERSCORE `keyToKey` '`'
 
@@ -242,7 +245,7 @@ showKeyCode (C ' ') = keyCodePrefix "SPACE"
 showKeyCode (C '`') = keyCodePrefix "BACKQUOTE"
 showKeyCode (C '\n') = keyCodePrefix "ENTER"
 showKeyCode (C c)
-  | c `elem` "1234567890" = keyCodePrefix $ "KEY_" ++ [c]
+  | isNumber c = keyCodePrefix $ "KEY_" ++ [c]
   | otherwise = keyCodePrefix [toUpper c]
 showKeyCode (ConsumerKey ckey) = "ConsumerKeyCode::" ++ show ckey
 showKeyCode code = keyCodePrefix $ show code
