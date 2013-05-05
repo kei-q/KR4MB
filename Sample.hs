@@ -22,7 +22,7 @@ rule = root $ do
     ';' `swapKey` '_'
 
     appendix "Google IME"
-    ctrl 'j' `keyToKey` ctrl (shift 'j')
+    ctrl 'j' `keyToKey` JIS_KANA
 
   group "standard settings" $ do
     item "JIS to US" $ do
