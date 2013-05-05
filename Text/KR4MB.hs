@@ -7,15 +7,17 @@ import Control.Monad.RWS
 import Data.Char (toLower, toUpper)
 import Data.List (intercalate)
 import qualified System.Process.QQ as P
+import Debug.Trace
 
-type Rule = RWS () String Int ()
+data RuleState = RS { rsIndent :: Int, rsIdentities :: [String] } deriving Show
+defaultRuleState = RS { rsIndent = 0, rsIdentities = [] }
+
+type Rule = RWS () String RuleState ()
 indentLevel = 4
-defaultIndentLevel = 0
 
-run rule = let (state, xml) = execRWS rule () defaultIndentLevel in xml
-
-output :: Rule -> IO ()
-output = putStrLn . run
+run rule = (state, xml)
+  where
+    (state, xml) = execRWS rule () defaultRuleState
 
 -- reload settings
 -- =========================
@@ -24,9 +26,40 @@ cli_path = "/Applications/KeyRemap4MacBook.app/Contents/Applications/KeyRemap4Ma
 
 reload :: FilePath -> Rule -> IO ()
 reload private_xml_path rule = do
-    writeFile private_xml_path $ run rule
+    let (state, xml) = run rule
+    writeFile private_xml_path xml
     [P.cmd|#{cli_path} reloadxml|]
+
+    forM_ (rsIdentities state) $ \ident -> do
+        [P.cmd|#{cli_path} enable #{ident}|]
+
     return ()
+
+-- change state
+-- =========================
+
+doIndent :: Rule -> Rule
+doIndent rule = indent >> rule >> dedent
+  where
+    indent = do
+        tellIndent
+        state <- get
+        let newIndent = (rsIndent state) + indentLevel
+        put state{ rsIndent = newIndent }
+
+    dedent = do
+        state <- get
+        let newIndent = (rsIndent state) - indentLevel
+        put state{ rsIndent = newIndent }
+        tellIndent
+
+identifier :: String -> Rule
+identifier name = do
+    let ident = toIdentifier name
+    state <- get
+    let newIdentities = ident : rsIdentities state
+    put state{ rsIdentities = newIdentities }
+    tell' "identifier" ident
 
 -- utility
 -- =========================
@@ -36,17 +69,14 @@ tell' tag s = do
     tell $ "<" ++ tag ++ ">" ++ s ++ "</" ++ tag ++ ">\n"
 
 tellIndent = do
-    indent <- get
+    state <- get
+    let indent = rsIndent state
     tell $ replicate indent ' '
 
 wrap :: String -> Rule -> Rule
 wrap tagname rule = do
-    tellIndent
     tell $ "<" ++ tagname ++ ">\n"
-    modify $ (+ indentLevel)
-    rule
-    modify $ (subtract indentLevel)
-    tellIndent
+    doIndent rule
     tell $ "</" ++ tagname ++ ">\n"
 
 toIdentifier :: String -> String
@@ -68,7 +98,7 @@ group name config = wrap "item" $ do
 item :: String -> Rule -> Rule
 item name config = wrap "item" $ do
     tell' "name" name
-    tell' "identifier" $ toIdentifier name
+    identifier name
     config
 
 appendix :: String -> Rule
@@ -92,7 +122,6 @@ keyOverlaidModifierWithRepeat base normal = do
     let base' = show $ toKey base
     let normal' = show $ toKey normal
     autogen $ "__KeyOverlaidModifierWithRepeat__ " ++ (base' ++ ", " ++ normal' ++ ", " ++ base')
-
 
 keyToKey :: (KeyBehavior a, KeyBehavior b) => a -> b -> Rule
 keyToKey old new = do
