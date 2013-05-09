@@ -49,24 +49,21 @@ rule = root $ do
           modkey SHIFT_L `keyToKey` modkey SHIFT_L
       SHIFT_L `keyToKey` VK_MODIFIER_EXTRA1
 
-      --  appendix "extra1と同時押しでa-lを最上段に変換"
-      --  forM_ (zip "asdfghjkl;" "!@#$%^&*()") $ \(c,sym) -> do
-      --    extra1 c `keyToKey` sym
-
       -- EXTRA1に依存してるので整理すること
     item "for tmux" $ do
       let focusiTerm = opt $ ctrl $ shift 'z'
       let tmuxPrefix = ctrl 't'
-      forM_ "[uiopnc" $ \key -> do
+      forM_ "jklpnc" $ \key -> do
         extra1 key `keyToKey'` [toKey JIS_EISUU, focusiTerm, tmuxPrefix, toKey key]
 
-    item "chrome" $ do
-          -- alfredでF3でchromeにfocusが行くよう設定
-          let focusChrome = toKey F3
-          forM_ "jk" $ \key -> do
-            extra1 key `keyToKey'` [toKey JIS_EISUU, focusChrome, toKey key]
+    app_only "TERMINAL" $ do
+      let tmuxPrefix = ctrl 't'
+      let copyModePrefix = ctrl '['
+      forM_ "du" $ \key -> do
+        extra1 key `keyToKey'` [tmuxPrefix, copyModePrefix, ctrl key]
 
   item "for coding" $ do
     extra1 '.' `keyToKey'` " -> "
+    extra1 ',' `keyToKey'` " # "
     extra1 'w' `keyToKey'` "\n  where\n"
 

@@ -112,6 +112,9 @@ appendix message = tell' "appendix" message
 autogen :: String -> String ->  Rule
 autogen key contents = tell' "autogen" $ key ++ " " ++ contents
 
+only :: String -> Rule
+only app_name = tell' "only" app_name
+
 -- keyremap
 -- =========================
 
@@ -151,6 +154,11 @@ keyToConsumer old new = do
     let old' = showKey old
     let new' = showKey new
     autogen "__KeyToConsumer__" (old' <.> new')
+
+app_only app_name rule = do
+    item app_name $ do
+        only app_name
+        rule
 
 -- contributes
 -- =========================
@@ -240,7 +248,9 @@ showKeyCode :: KeyCode -> String
 showKeyCode (C ';') = keyCodePrefix "SEMICOLON"
 showKeyCode (C '-') = keyCodePrefix "MINUS"
 showKeyCode (C '[') = keyCodePrefix "BRACKET_LEFT"
+showKeyCode (C ']') = keyCodePrefix "BRACKET_RIGHT"
 showKeyCode (C '.') = keyCodePrefix "DOT"
+showKeyCode (C ',') = keyCodePrefix "COMMA"
 showKeyCode (C ' ') = keyCodePrefix "SPACE"
 showKeyCode (C '`') = keyCodePrefix "BACKQUOTE"
 showKeyCode (C '\n') = keyCodePrefix "ENTER"
