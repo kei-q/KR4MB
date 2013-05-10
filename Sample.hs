@@ -15,6 +15,9 @@ main = do
 
 rule :: Rule
 rule = root $ do
+  item "disable minimize" $ do
+    cmd 'm' `keyToKey` VK_NONE
+
   item "personal settings" $ do
     keyOverlaidModifier CONTROL_L CONTROL_L [JIS_EISUU, ESCAPE]
 
