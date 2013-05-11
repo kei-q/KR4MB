@@ -1,6 +1,7 @@
 
 import Text.KR4MB
 import Control.Monad (forM_)
+import System.Environment
 
 dest_path = "/Users/keqh/Library/Application Support/KeyRemap4MacBook/private.xml"
 
@@ -10,8 +11,13 @@ settings = [("repeat.wait", 10)
     ]
 
 main = do
-    reload dest_path rule
-    setParams settings
+  (arg:rest) <- getArgs
+  if arg == "dump"
+    then do
+      dump rule
+    else do
+      reload dest_path rule
+      setParams settings
 
 rule :: Rule
 rule = root $ do

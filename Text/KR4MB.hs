@@ -29,6 +29,11 @@ setParams = mapM_ CLI.set
 -- reload settings
 -- =========================
 
+dump :: Rule -> IO ()
+dump rule = do
+    let (state, xml) = run rule
+    putStrLn xml
+
 reload :: FilePath -> Rule -> IO ()
 reload private_xml_path rule = do
     let (state, xml) = run rule
